@@ -9,12 +9,12 @@ Pic:change(), and Pic:wait().
 local love = _G.love
 local common = require "class.commons"
 local tween = require "/libraries/tween"
-local inits = require "/helpers/inits"
+local consts = require "/helpers/consts"
 
 local Pic = {}
 
 -- required: x, y, image
--- container/counter to specify different container and ID counter
+-- container to specify different container
 -- doesn't assign the created instance to any container by default
 function Pic:init(tbl)
 	self.queuedMoves = {}
@@ -30,20 +30,12 @@ function Pic:init(tbl)
 	if tbl.y == nil then print("No y-value received!") end
 	if tbl.image == nil then print("No image received!") end
 	if tbl.container then
-		if not tbl.name and not tbl.counter then
-			print ("Container specified without either name or counter!")
-		end
-		if not tbl.counter then
-			self.ID = tbl.name
-			self.container[tbl.name] = self
-		else
-			inits.ID[tbl.counter] = inits.ID[tbl.counter] + 1
-			self.ID = inits.ID[tbl.counter]
-			self.container[self.ID] = self
-		end
+		assert(tbl.name, "Container specified without name!")
+		self.ID = tbl.name
+		self.container[tbl.name] = self
 	else
-		inits.ID.particle = inits.ID.particle + 1
-		self.ID = inits.ID.particle
+		consts.particleCount = consts.particleCount + 1
+		self.ID = consts.particleCount
 	end
 
 	self.width = self.image:getWidth()
@@ -64,7 +56,7 @@ function Pic:create(params)
 	assert(params.y, "y-value not received!")
 	assert(params.image, "Image not received!")
 	if params.container then
-		assert(params.name or params.counter, "Container specified without name or counter!")
+		assert(params.name, "Container specified without name!")
 	end
 
 	return common.instance(self, params)
@@ -444,7 +436,7 @@ function Pic:clear()
 end
 
 function Pic:update(dt)
-	dt = dt / inits.timeStep  -- convert dt to frames
+	dt = dt / consts.timeStep  -- convert dt to frames
 	if self.moveFunc then
 		if self.during then -- takes {frameStep, frame_start, func, args}
 			self.duringFrame = self.duringFrame + 1

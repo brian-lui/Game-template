@@ -6,8 +6,39 @@ specific. It uses a multithreaded image loader to improve performance.
 local love = _G.love
 local lily = require "/libraries/lily"
 
-local main = {
-	"mainlogo",
+local cardart = {
+	"idea", "magic", "sleepydragon",
+}
+
+local cardui = {
+	"beige", "beigetexture", "tealtexture", "title", "txtbox",
+}
+
+local dreams = {
+	"back", "card1", "card2", "dragondream", "personal",
+}
+
+local gui = {
+	"actionbox", "activitiesframe", "activitiestxt", "canceltxt", "coparent",
+	"dragonmoonicon", "finalizetxt",  "progressbookicon",
+	"questionicon", "scheduleframe", "scheduletxt", "screendark", "settingsicon",
+
+	"cardcloseup_box",
+
+	"progress_bar", "progress_infoscreen", "progress_tag",
+
+	"stats_actionicon", "stats_actionplusblock", "stats_blockback",
+	"stats_blockframe", "stats_blue", "stats_energyback", "stats_energyicon",
+	"stats_happyicon", "stats_loveicon", "stats_moneyplusblock",
+	"stats_pink", "stats_yellow",
+}
+
+local infocard = {
+	"back", "frame", "tape", "wellrested",
+}
+
+local infocardart = {
+	"wellrestedart",
 }
 
 local title = {
@@ -18,12 +49,19 @@ local particles = {
 	"pow",
 }
 
+
+
 -- categories to create, in the form [key] = {category}
 -- assumes that key is the same as pathname
 -- e.g. buttons = buttons will create
 -- imageNames["buttons_" .. item] = "images/buttons/" .. item .. ".png"
 local categories = {
-	main = main,
+	cardart = cardart,
+	cardui = cardui,
+	dreams = dreams,
+	gui = gui,
+	infocard = infocard,
+	infocardart = infocardart,
 	title = title,
 	particles = particles,
 }

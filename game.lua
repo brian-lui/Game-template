@@ -15,7 +15,7 @@ states, such as darkening and brightening screen
 local love = _G.love
 local Pic = require "pic"
 local common = require "/libraries/classcommons"
-local inits = require "/helpers/inits"
+local consts = require "/helpers/consts"
 
 
 --[==================[
@@ -30,20 +30,20 @@ end
 function Queue:add(frames, func, ...)
 	assert(frames % 1 == 0 and frames >= 0, "non-integer or negative queue received")
 	assert(type(func) == "function", "non-function of type " .. type(func) .. " received")
-	local a = inits.frame + frames
+	local a = consts.frame + frames
 	self[a] = self[a] or {}
 	table.insert(self[a], {func, {...}})
 end
 
 function Queue:update()
-	local doToday = self[inits.frame]
+	local doToday = self[consts.frame]
 
 	if doToday then
 		for i = 1, #doToday do
 			local func, args = doToday[i][1], doToday[i][2]
 			func(table.unpack(args))
 		end
-		self[inits.frame] = nil
+		self[consts.frame] = nil
 	end
 end
 
@@ -75,7 +75,7 @@ end
 
 function Game:reset()
 	self.rng:setSeed(os.time())
-	inits.ID:reset()
+	consts:reset()
 	self.sound:reset()
 	self.particles:reset()
 
@@ -97,16 +97,16 @@ or we reached the maximum number of times to run the logic this cycle.
 --]]
 function Game:timeDip(func, ...)
 	for _ = 1, 4 do -- run a maximum of 4 logic cycles per love.update cycle
-		if inits.timeBucket >= inits.timeStep then
+		if consts.timeBucket >= consts.timeStep then
 			func(...)
-			inits.frame = inits.frame + 1
-			inits.timeBucket = inits.timeBucket - inits.timeStep
+			consts.frame = consts.frame + 1
+			consts.timeBucket = consts.timeBucket - consts.timeStep
 		end
 	end
 end
 
 function Game:update(dt)
-	inits.timeBucket = inits.timeBucket + dt
+	consts.timeBucket = consts.timeBucket + dt
 
 	self:timeDip(function()
 		self.queue:update()
@@ -122,8 +122,8 @@ end
 --[[ create a clickable object
 	mandatory parameters: name, image, imagePushed, endX, endY, action
 	optional parameters: duration, startTransparency, endTransparency,
-		startX, startY, easing, exit, pushed, pushedSFX, released,
-		releasedSFX, forceMaxAlpha, imageIndex
+		startX, startY, easing, exit, pushed, pushedSFX, released, startScaling,
+		endScaling, releasedSFX, forceMaxAlpha, imageIndex, category
 --]]
 function Game:_createButton(gamestate, params)
 	params = params or {}
@@ -137,11 +137,14 @@ function Game:_createButton(gamestate, params)
 		x = params.startX or params.endX,
 		y = params.startY or params.endY,
 		transparency = params.startTransparency or 1,
+		scaling = params.startScaling or 1,
 		image = params.image,
 		imageIndex = params.imageIndex,
 		container = params.container or gamestate.ui.clickable,
 		forceMaxAlpha = params.forceMaxAlpha,
 		sound = self.sound,
+		category = params.category,
+		clickable = true,
 	}
 
 	button:change{
@@ -149,6 +152,7 @@ function Game:_createButton(gamestate, params)
 		x = params.endX,
 		y = params.endY,
 		transparency = params.endTransparency or 1,
+		scaling = params.endScaling or 1,
 		easing = params.easing or "linear",
 		exitFunc = params.exitFunc,
 	}
@@ -162,15 +166,68 @@ function Game:_createButton(gamestate, params)
 		end
 		_self:newImage(params.image)
 	end
-	button.action = params.action
+
+	button.action = params.action -- when clicked/pressed
+	button.gamestate = gamestate -- for action context
+
 	return button
 end
+
+-------------------------------------------------------------------------------
+--[[ creates an object that can be dragged and longpressed
+	mandatory parameters: name, image, imagePressed, endX, endY
+	optional parameters: duration, startTransparency, endTransparency,
+		startX, startY, easing, exit, pushed, pushedSFX, startScaling, endScaling,
+		releasedSFX, forceMaxAlpha, imageIndex, longpressed, category
+--]]
+function Game:_createDraggable(gamestate, params)
+	params = params or {}
+	if params.name == nil then print("No object name received!") end
+	if params.imagePressed == nil then
+		print("Caution: no push image received for " .. params.name .. "!")
+	end
+
+	local draggable = Pic:create{
+		name = params.name,
+		x = params.startX or params.endX,
+		y = params.startY or params.endY,
+		transparency = params.startTransparency or 1,
+		scaling = params.startScaling or 1,
+		image = params.image,
+		imageIndex = params.imageIndex,
+		container = params.container or gamestate.ui.draggable,
+		forceMaxAlpha = params.forceMaxAlpha,
+		sound = self.sound,
+		category = params.category,
+	}
+
+	draggable:change{
+		duration = params.duration,
+		x = params.endX,
+		y = params.endY,
+		transparency = params.endTransparency or 1,
+		scaling = params.endScaling or 1,
+		easing = params.easing or "linear",
+		exitFunc = params.exitFunc,
+	}
+	draggable.longpressed = params.longpressed or function(_self)
+		_self:newImage(params.imagePressed)
+	end
+
+	draggable.released = params.released or function(_self)
+		_self:newImage(params.image)
+	end
+
+	return draggable
+end
+
 
 --[[ creates an object that can be tweened but not clicked
 	mandatory parameters: name, image, endX, endY
 	optional parameters: duration, startTransparency, endTransparency,
 		startX, startY, easing, remove, exitFunc, forceMaxAlpha,
-		startScaling, endScaling, container, counter, flipH, imageIndex
+		startScaling, endScaling, container, flipH, imageIndex,
+		category
 --]]
 function Game:_createImage(gamestate, params)
 	params = params or {}
@@ -184,10 +241,10 @@ function Game:_createImage(gamestate, params)
 		scaling = params.startScaling or 1,
 		image = params.image,
 		imageIndex = params.imageIndex,
-		counter = params.counter,
 		container = params.container or gamestate.ui.static,
 		forceMaxAlpha = params.forceMaxAlpha,
 		flipH = params.flipH,
+		category = params.category,
 	}
 
 	button:change{
@@ -203,13 +260,68 @@ function Game:_createImage(gamestate, params)
 	return button
 end
 
+--[[ creates an object that displays text
+	mandatory parameters: name, font, text, x, y
+	optional parameters: RGBColor, imageIndex, transparency, category
+--]]
+function Game:_createText(gamestate, params)
+	params = params or {}
+	assert(params.name, "No object name received!")
+	assert(consts.FONT[params.font], "No font received or invalid font name!")
+	assert(params.text, "No text received!")
+	assert(params.x and params.y, "No x-value or y-value received!")
+
+	local text = {
+		container = gamestate.ui.text,
+		name = params.name,
+		font = consts.FONT[params.font],
+		text = params.text,
+		x = params.x,
+		y = params.y,
+		color = params.RGBColor or {0, 0, 0},
+		imageIndex = params.imageIndex or 0,
+		transparency = params.transparency or 1,
+		category = params.category,
+	}
+
+	text.draw = function(_self)
+		if _self.transparency == 0 then return end
+
+		local RGBT = {
+			_self.color[1],
+			_self.color[2],
+			_self.color[3],
+			_self.transparency,
+		}
+
+		love.graphics.push("all")
+			love.graphics.setFont(_self.font)
+			love.graphics.setColor(RGBT)
+			love.graphics.printf(_self.text, _self.x, _self.y, math.huge, "left")
+			-- love.graphics.printf( text, x, y, limit, align, r, sx, sy, ox, oy, kx, ky )
+		love.graphics.pop()
+	end
+
+	text.update = function(_self) end
+
+	text.remove = function(_self)
+		_self.container[_self.name] = nil
+	end
+
+	gamestate.ui.text[text.name] = text
+
+	return text
+end
+
+
+
 local pointIsInRect = require "/helpers/utilities".pointIsInRect
 
 --default controllerPressed function if not specified by a sub-state
 function Game:_controllerPressed(x, y, gamestate)
 	if self.controls.pressedDown == 0 then
 		for _, button in pairs(gamestate.ui.clickable) do
-			if pointIsInRect(x, y, button:getRect()) then
+			if pointIsInRect(x, y, button:getRect()) and button.clickable then
 				self.controls.clicked = button
 				button:pushed()
 			end
@@ -227,7 +339,7 @@ function Game:_controllerReleased(x, y, gamestate)
 
 			if pointIsInRect(x, y, button:getRect())
 			and self.controls.clicked == button then
-				button.action()
+				button.action(button.gamestate, self)
 				break
 			end
 		end
@@ -251,7 +363,7 @@ end
 
 -- get current controller position
 function Game:_getControllerPosition()
-	local drawspace = inits.drawspace
+	local drawspace = consts.drawspace
 	local x, y = drawspace.tlfres.getMousePosition(drawspace.width, drawspace.height)
 	return x, y
 end
